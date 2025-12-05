@@ -4,6 +4,7 @@ import HowItWorks from "@/components/HowItWorks";
 import Benefits from "@/components/Benefits";
 import AcceptedItems from "@/components/AcceptedItems";
 import Footer from "@/components/Footer";
+import LoanRequest from "./LoanRequest";
 
 const Index = () => {
   return (
@@ -13,6 +14,7 @@ const Index = () => {
         <HeroSection />
         <HowItWorks />
         <Benefits />
+        <LoanRequest />
         <AcceptedItems />
       </main>
       <Footer />
