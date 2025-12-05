@@ -195,7 +195,7 @@ const LoanRequestForm = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="loanAmount">Cantidad del préstamo (MXN)</Label>
+          <Label htmlFor="loanAmount">Cantidad del préstamo</Label>
           <Input
             id="loanAmount"
             type="number"
@@ -211,7 +211,7 @@ const LoanRequestForm = () => {
           <Label htmlFor="location">Ubicación</Label>
           <Input
             id="location"
-            placeholder="Ciudad de México, CDMX"
+            placeholder="Azuay, Cuenca"
             {...register("location")}
           />
           {errors.location && (
