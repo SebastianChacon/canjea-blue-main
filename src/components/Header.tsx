@@ -31,7 +31,7 @@ const Header = () => {
             href="#como-funciona"
             className="text-muted-foreground hover:text-primary transition-colors"
           >
-            Cómo funciona hola
+            Cómo funciona
           </a>
           <a
             href="#beneficios"
@@ -47,7 +47,7 @@ const Header = () => {
           </a>
         </nav>
 
-        <Button className="gap-2 bg-green-700" onClick={openWhatsApp}>
+        <Button className="gap-2 bg-green-600 hover:bg-green-700 transition-colors" onClick={openWhatsApp}>
           <Phone className="h-4 w-4" />
           Whatsapp
         </Button>
