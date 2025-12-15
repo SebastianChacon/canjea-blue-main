@@ -1,11 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Clock, Banknote } from "lucide-react";
-import { Link } from "react-router-dom";
+import heroImage from "@/assets/hero-image.jpg";
 
 const HeroSection = () => {
   return (
-    <section className="pt-28 pb-20 gradient-hero">
-      <div className="container mx-auto px-4">
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+      <div
+        className="absolute inset-0 z-0" 
+        style={{
+          backgroundImage: `linear-gradient(rgba(210, 237, 255, 0.95), rgba(210, 237, 255, 0.9)), url(${heroImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
+
+      <div className="container mx-auto px-4  z-10 relative">
+        {" "}
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-6">
             <Shield className="h-4 w-4" />
@@ -40,7 +50,9 @@ const HeroSection = () => {
                 <Clock className="h-6 w-6 text-primary" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-foreground">Aprobación rápida</p>
+                <p className="font-semibold text-foreground">
+                  Aprobación rápida
+                </p>
                 <p className="text-sm text-muted-foreground">En minutos</p>
               </div>
             </div>
@@ -51,7 +63,9 @@ const HeroSection = () => {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-foreground">100% Seguro</p>
-                <p className="text-sm text-muted-foreground">Custodia garantizada</p>
+                <p className="text-sm text-muted-foreground">
+                  Custodia garantizada
+                </p>
               </div>
             </div>
 
@@ -61,7 +75,9 @@ const HeroSection = () => {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-foreground">Hasta 60%</p>
-                <p className="text-sm text-muted-foreground">Del valor del artículo</p>
+                <p className="text-sm text-muted-foreground">
+                  Del valor del artículo
+                </p>
               </div>
             </div>
           </div>
