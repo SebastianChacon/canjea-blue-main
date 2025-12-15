@@ -23,8 +23,8 @@ const HeroSection = () => {
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Préstamos inmediatos con{" "}
-            <span className="text-primary">garantía en artículos</span>
+            Dinero inmediato, {" "}
+            <span className="text-primary">sin garantes ni papeleos</span>
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">

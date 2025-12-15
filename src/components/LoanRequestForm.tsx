@@ -154,7 +154,7 @@ const LoanRequestForm = () => {
           <Label htmlFor="phoneNumber">Número de contacto</Label>
           <Input
             id="phoneNumber"
-            placeholder="+52 555 123 4567"
+            placeholder="09 00000000"
             {...register("phoneNumber")}
           />
           {errors.phoneNumber && (
@@ -211,7 +211,7 @@ const LoanRequestForm = () => {
           <Label htmlFor="location">Ubicación</Label>
           <Input
             id="location"
-            placeholder="Azuay, Cuenca"
+            placeholder="Cuenca, Azuay"
             {...register("location")}
           />
           {errors.location && (

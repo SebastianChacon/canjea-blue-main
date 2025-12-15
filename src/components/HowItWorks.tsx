@@ -5,25 +5,29 @@ const steps = [
     icon: Camera,
     step: "01",
     title: "Sube tu artículo",
-    description: "Toma fotos y describe tu artículo en garantía. Registro rápido con cédula y selfie.",
+    description:
+      "Toma fotos y describe tu artículo en garantía. Registro rápido con cédula y selfie.",
   },
   {
     icon: CheckCircle,
     step: "02",
-    title: "Tasación y aprobación",
-    description: "Evaluamos tu artículo y definimos el monto máximo del préstamo (hasta 60% del valor).",
+    title: "Evaluación y aprobación",
+    description:
+      "Evaluamos tu artículo y definimos el monto máximo del préstamo (hasta 60% del valor).",
   },
   {
     icon: Wallet,
     step: "03",
     title: "Recibe tu dinero",
-    description: "Aprobación inmediata y transferencia directa a tu cuenta o billetera digital.",
+    description:
+      "Aprobación inmediata y transferencia directa a tu cuenta o billetera digital.",
   },
   {
     icon: Package,
     step: "04",
     title: "Recupera tu artículo",
-    description: "Paga el préstamo + comisión y recupera tu artículo en perfectas condiciones.",
+    description:
+      "Paga el préstamo + almacenamiento del articulo.",
   },
 ];
 
@@ -36,16 +40,14 @@ const HowItWorks = () => {
             ¿Cómo funciona?
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Proceso simple y transparente en 4 pasos
+            si acepta la oferta, entrega el objeto. y recibes la transferencia
+            inmediata{" "}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {steps.map((item, index) => (
-            <div
-              key={index}
-              className="relative group"
-            >
+            <div key={index} className="relative group">
               <div className="bg-card rounded-2xl p-6 shadow-card border border-border hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="text-primary/20 text-6xl font-bold absolute top-4 right-4">
                   {item.step}
@@ -56,11 +58,9 @@ const HowItWorks = () => {
                 <h3 className="text-xl font-semibold text-foreground mb-3">
                   {item.title}
                 </h3>
-                <p className="text-muted-foreground">
-                  {item.description}
-                </p>
+                <p className="text-muted-foreground">{item.description}</p>
               </div>
-              
+
               {index < steps.length - 1 && (
                 <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5 bg-border" />
               )}

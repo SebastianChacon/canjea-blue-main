@@ -47,9 +47,9 @@ const Header = () => {
           </a>
         </nav>
 
-        <Button className="gap-2" onClick={openWhatsApp}>
+        <Button className="gap-2 bg-green-700" onClick={openWhatsApp}>
           <Phone className="h-4 w-4" />
-          Contáctanos
+          Whatsapp
         </Button>
       </div>
     </header>
