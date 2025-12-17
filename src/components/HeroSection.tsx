@@ -41,8 +41,7 @@ const HeroSection = () => {
 
           <ScrollAnimator animationClassName="animate-fade-in-up [animation-delay:200ms]">
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Obtén liquidez al instante usando tus bienes como respaldo temporal.
-              Proceso rápido, seguro y 100% digital.
+              Obtén liquidez al instante Canjeando tus bienes como respaldo temporal.
             </p>
           </ScrollAnimator>
 
@@ -50,7 +49,7 @@ const HeroSection = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Button size="lg" className="gap-2 text-base px-8 transition-transform hover:scale-105" asChild>
                 <a href="#solicitar">
-                  Solicitar préstamo
+                  Solicitar
                   <ArrowRight className="h-5 w-5" />
                 </a>
               </Button>

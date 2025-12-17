@@ -19,16 +19,16 @@ const steps = [
   {
     icon: Wallet,
     step: "03",
-    title: "Recibe tu dinero",
+    title: "Acepta y recibe tu dinero",
     description:
-      "Aprobación inmediata y transferencia directa a tu cuenta o billetera digital.",
+      "Si acepta la oferta, entrega el bien y reviras el dinero de inmediato de forma segura.",
   },
   {
     icon: Package,
     step: "04",
     title: "Recupera tu artículo",
     description:
-      "Paga el préstamo + almacenamiento del articulo.",
+      "Retorna el capital recibido, recibe tu bien.",
   },
 ];
 
