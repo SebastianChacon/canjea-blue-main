@@ -11,6 +11,13 @@ const items = [
 ];
 
 const AcceptedItems = () => {
+  
+  const openWhatsApp = (): void => {
+    const phone = "593963862520";
+    const text = encodeURIComponent("Estoy interesado en un canje");
+    window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+  };
+
   return (
     <section className="py-20 bg-secondary/30">
       <div className="container mx-auto px-4">
@@ -45,7 +52,7 @@ const AcceptedItems = () => {
 
         <ScrollAnimator style={{ animationDelay: `${items.length * 100}ms` }}>
           <p className="text-center text-muted-foreground mt-8">
-            ¿Tienes otro artículo? <span className="text-primary font-medium cursor-pointer hover:underline">Contáctanos</span> para evaluarlo
+            ¿Tienes otro artículo? <span onClick={openWhatsApp} className="text-primary font-medium cursor-pointer hover:underline">Contáctanos</span> para evaluarlo
           </p>
         </ScrollAnimator>
       </div>
