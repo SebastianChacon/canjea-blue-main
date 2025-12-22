@@ -21,7 +21,7 @@ const steps = [
     step: "03",
     title: "Acepta y recibe tu dinero",
     description:
-      "Si acepta la oferta, entrega el bien y reviras el dinero de inmediato de forma segura.",
+      "Si acepta la oferta, entrega el bien y recibirás el dinero de inmediato de forma segura.",
   },
   {
     icon: Package,
