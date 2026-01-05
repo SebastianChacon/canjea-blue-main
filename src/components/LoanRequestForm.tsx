@@ -13,7 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { db, storage } from "@/integrations/firebase/client"; // Import Firebase client
+import { collection, addDoc } from "firebase/firestore"; // Import Firestore functions
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Import Storage functions
 import { Upload, X, Loader2 } from "lucide-react";
 
 const formSchema = z.object({
@@ -78,20 +80,10 @@ const LoanRequestForm = () => {
 
     for (const file of images) {
       const fileName = `${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage
-        .from("loan-images")
-        .upload(fileName, file);
-
-      if (error) {
-        console.error("Error uploading image:", error);
-        continue;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("loan-images")
-        .getPublicUrl(data.path);
-
-      uploadedUrls.push(urlData.publicUrl);
+      const imageRef = ref(storage, `loan-images/${fileName}`);
+      await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(imageRef);
+      uploadedUrls.push(downloadURL);
     }
 
     return uploadedUrls;
@@ -103,7 +95,7 @@ const LoanRequestForm = () => {
     try {
       const imageUrls = await uploadImages();
 
-      const { error } = await supabase.from("loan_requests").insert({
+      const loanData = {
         full_name: data.fullName,
         phone_number: data.phoneNumber,
         email: data.email,
@@ -111,13 +103,15 @@ const LoanRequestForm = () => {
         loan_amount: parseFloat(data.loanAmount),
         location: data.location,
         images: imageUrls,
-      });
+        status: "pending",
+        created_at: new Date(), // Firebase will store this as a Timestamp
+      };
 
-      if (error) throw error;
+      await addDoc(collection(db, "loan_requests"), loanData);
 
       toast({
         title: "Solicitud enviada",
-        description: "Nos pondremos en contacto contigo pronto.",
+        description: "Tu solicitud ha sido enviada exitosamente a Firebase.",
       });
 
       reset();
@@ -127,7 +121,7 @@ const LoanRequestForm = () => {
       console.error("Error submitting form:", error);
       toast({
         title: "Error",
-        description: "Hubo un problema al enviar tu solicitud. Intenta de nuevo.",
+        description: "Hubo un problema al enviar tu solicitud a Firebase. Intenta de nuevo.",
         variant: "destructive",
       });
     } finally {
