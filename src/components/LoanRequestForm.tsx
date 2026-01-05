@@ -13,9 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { db, storage } from "@/integrations/firebase/client"; // Import Firebase client
-import { collection, addDoc } from "firebase/firestore"; // Import Firestore functions
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Import Storage functions
+import { db, storage } from "@/integrations/firebase/client";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, Loader2 } from "lucide-react";
 
 const formSchema = z.object({
@@ -52,11 +52,22 @@ const LoanRequestForm = () => {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
     reset,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: "",
+      phoneNumber: "",
+      email: "",
+      objectType: "",
+      loanAmount: "",
+      location: "",
+    },
   });
+
+  const objectType = watch("objectType");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -76,10 +87,14 @@ const LoanRequestForm = () => {
   };
 
   const uploadImages = async (): Promise<string[]> => {
+    if (images.length === 0) return [];
+
     const uploadedUrls: string[] = [];
 
     for (const file of images) {
-      const fileName = `${Date.now()}-${file.name}`;
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(7)}-${file.name}`;
       const imageRef = ref(storage, `loan-images/${fileName}`);
       await uploadBytes(imageRef, file);
       const downloadURL = await getDownloadURL(imageRef);
@@ -90,11 +105,27 @@ const LoanRequestForm = () => {
   };
 
   const onSubmit = async (data: FormData) => {
+    console.log("=== INICIO DEL PROCESO ===");
+    console.log("1. Datos del formulario:", data);
+
+    if (!data.objectType) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un tipo de objeto",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      // Paso 1: Subir imágenes
+      console.log("2. Iniciando subida de imágenes...");
       const imageUrls = await uploadImages();
+      console.log("3. Imágenes subidas:", imageUrls);
 
+      // Paso 2: Preparar datos para Firebase
       const loanData = {
         full_name: data.fullName,
         phone_number: data.phoneNumber,
@@ -104,28 +135,53 @@ const LoanRequestForm = () => {
         location: data.location,
         images: imageUrls,
         status: "pending",
-        created_at: new Date(), // Firebase will store this as a Timestamp
+        created_at: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "loan_requests"), loanData);
+      console.log("4. Datos preparados para Firestore:", loanData);
+      console.log("5. Intentando guardar en colección 'loan_requests'...");
+
+      // Paso 3: Guardar en Firestore
+      const docRef = await addDoc(collection(db, "loan_requests"), loanData);
+
+      console.log("6. ✅ ÉXITO - Documento creado con ID:", docRef.id);
 
       toast({
-        title: "Solicitud enviada",
-        description: "Tu solicitud ha sido enviada exitosamente a Firebase.",
+        title: "¡Solicitud enviada!",
+        description: `Tu solicitud ha sido registrada exitosamente. ID: ${docRef.id}`,
       });
 
+      // Limpiar formulario
       reset();
       setImages([]);
       setImagePreviews([]);
+      
     } catch (error) {
-      console.error("Error submitting form:", error);
+      console.error("❌ ERROR COMPLETO:", error);
+      console.error("Código de error:", error.code);
+      console.error("Mensaje:", error.message);
+      alert(`ERROR: ${error.code} - ${error.message}`);
+      console.error("Stack:", error.stack);
+
+      let errorMessage = "Hubo un problema al enviar tu solicitud.";
+      
+      // Mensajes de error específicos
+      if (error.code === "permission-denied") {
+        errorMessage = "Permisos denegados. Verifica las reglas de seguridad de Firebase.";
+      } else if (error.code === "unavailable") {
+        errorMessage = "Servicio no disponible. Verifica tu conexión a internet.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error",
-        description: "Hubo un problema al enviar tu solicitud a Firebase. Intenta de nuevo.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
+      console.log("=== FIN DEL PROCESO ===");
     }
   };
 
@@ -140,7 +196,9 @@ const LoanRequestForm = () => {
             {...register("fullName")}
           />
           {errors.fullName && (
-            <p className="text-sm text-destructive">{errors.fullName.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.fullName.message}
+            </p>
           )}
         </div>
 
@@ -152,7 +210,9 @@ const LoanRequestForm = () => {
             {...register("phoneNumber")}
           />
           {errors.phoneNumber && (
-            <p className="text-sm text-destructive">{errors.phoneNumber.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.phoneNumber.message}
+            </p>
           )}
         </div>
 
@@ -171,7 +231,12 @@ const LoanRequestForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="objectType">Tipo de objeto</Label>
-          <Select onValueChange={(value) => setValue("objectType", value)}>
+          <Select
+            value={objectType}
+            onValueChange={(value) =>
+              setValue("objectType", value, { shouldValidate: true })
+            }
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecciona una opción" />
             </SelectTrigger>
@@ -184,20 +249,25 @@ const LoanRequestForm = () => {
             </SelectContent>
           </Select>
           {errors.objectType && (
-            <p className="text-sm text-destructive">{errors.objectType.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.objectType.message}
+            </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="loanAmount">Cantidad del préstamo</Label>
+          <Label htmlFor="loanAmount">Cantidad del préstamo ($)</Label>
           <Input
             id="loanAmount"
             type="number"
+            step="0.01"
             placeholder="5000"
             {...register("loanAmount")}
           />
           {errors.loanAmount && (
-            <p className="text-sm text-destructive">{errors.loanAmount.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.loanAmount.message}
+            </p>
           )}
         </div>
 
@@ -209,7 +279,9 @@ const LoanRequestForm = () => {
             {...register("location")}
           />
           {errors.location && (
-            <p className="text-sm text-destructive">{errors.location.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.location.message}
+            </p>
           )}
         </div>
       </div>
@@ -238,6 +310,9 @@ const LoanRequestForm = () => {
                 ? "Máximo de imágenes alcanzado"
                 : "Haz clic o arrastra para subir imágenes"}
             </span>
+            <span className="text-xs text-muted-foreground">
+              {images.length}/5 imágenes
+            </span>
           </label>
         </div>
 
@@ -263,7 +338,12 @@ const LoanRequestForm = () => {
         )}
       </div>
 
-      <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={isSubmitting}
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
