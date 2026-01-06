@@ -13,8 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { db, storage } from "@/integrations/firebase/client";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, Loader2 } from "lucide-react";
+import { Controller } from "react-hook-form";
 
 const formSchema = z.object({
   fullName: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -40,6 +43,9 @@ const objectTypes = [
   "Otro",
 ];
 
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // 5MB
+
 const LoanRequestForm = () => {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -49,22 +55,44 @@ const LoanRequestForm = () => {
   const {
     register,
     handleSubmit,
-    setValue,
+    control,
     formState: { errors },
     reset,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: "",
+      phoneNumber: "",
+      email: "",
+      objectType: "",
+      loanAmount: "",
+      location: "",
+    },
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles = Array.from(files).slice(0, 5 - images.length);
-    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    const newValidFiles: File[] = [];
+    const newValidPreviews: string[] = [];
+    const filesToProcess = Array.from(files).slice(0, 5 - images.length);
 
-    setImages((prev) => [...prev, ...newFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    for (const file of filesToProcess) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({
+          title: "Error de archivo",
+          description: `La imagen "${file.name}" excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB.`,
+          variant: "destructive",
+        });
+        continue; // Skip this file if too large
+      }
+      newValidFiles.push(file);
+      newValidPreviews.push(URL.createObjectURL(file));
+    }
+
+    setImages((prev) => [...prev, ...newValidFiles]);
+    setImagePreviews((prev) => [...prev, ...newValidPreviews]);
   };
 
   const removeImage = (index: number) => {
@@ -74,36 +102,42 @@ const LoanRequestForm = () => {
   };
 
   const uploadImages = async (): Promise<string[]> => {
+    if (images.length === 0) return [];
+
     const uploadedUrls: string[] = [];
 
     for (const file of images) {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage
-        .from("loan-images")
-        .upload(fileName, file);
-
-      if (error) {
-        console.error("Error uploading image:", error);
-        continue;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("loan-images")
-        .getPublicUrl(data.path);
-
-      uploadedUrls.push(urlData.publicUrl);
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(7)}-${file.name}`;
+      const imageRef = ref(storage, `loan-images/${fileName}`);
+      await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(imageRef);
+      uploadedUrls.push(downloadURL);
     }
 
     return uploadedUrls;
   };
 
   const onSubmit = async (data: FormData) => {
+    // Validación adicional
+    if (!data.objectType) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un tipo de objeto",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      // Subir imágenes
       const imageUrls = await uploadImages();
 
-      const { error } = await supabase.from("loan_requests").insert({
+      // Preparar datos para Firebase
+      const loanData = {
         full_name: data.fullName,
         phone_number: data.phoneNumber,
         email: data.email,
@@ -111,23 +145,39 @@ const LoanRequestForm = () => {
         loan_amount: parseFloat(data.loanAmount),
         location: data.location,
         images: imageUrls,
-      });
+        status: "pending",
+        created_at: serverTimestamp(),
+      };
 
-      if (error) throw error;
+      // Guardar en Firestore
+      const docRef = await addDoc(collection(db, "loan_requests"), loanData);
 
       toast({
-        title: "Solicitud enviada",
-        description: "Nos pondremos en contacto contigo pronto.",
+        title: "¡Solicitud enviada!",
+        description: `Tu solicitud ha sido registrada exitosamente. ID: ${docRef.id}`,
       });
 
+      // Limpiar formulario
       reset();
       setImages([]);
       setImagePreviews([]);
+      
     } catch (error) {
-      console.error("Error submitting form:", error);
+      console.error("Error al enviar solicitud:", error);
+
+      let errorMessage = "Hubo un problema al enviar tu solicitud.";
+
+      if (error.code === "permission-denied") {
+        errorMessage = "Permisos denegados. Verifica las reglas de seguridad de Firebase.";
+      } else if (error.code === "unavailable") {
+        errorMessage = "Servicio no disponible. Verifica tu conexión a internet.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error",
-        description: "Hubo un problema al enviar tu solicitud. Intenta de nuevo.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -146,7 +196,9 @@ const LoanRequestForm = () => {
             {...register("fullName")}
           />
           {errors.fullName && (
-            <p className="text-sm text-destructive">{errors.fullName.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.fullName.message}
+            </p>
           )}
         </div>
 
@@ -158,7 +210,9 @@ const LoanRequestForm = () => {
             {...register("phoneNumber")}
           />
           {errors.phoneNumber && (
-            <p className="text-sm text-destructive">{errors.phoneNumber.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.phoneNumber.message}
+            </p>
           )}
         </div>
 
@@ -177,33 +231,46 @@ const LoanRequestForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="objectType">Tipo de objeto</Label>
-          <Select onValueChange={(value) => setValue("objectType", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona una opción" />
-            </SelectTrigger>
-            <SelectContent>
-              {objectTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="objectType"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una opción" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {objectTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+
           {errors.objectType && (
-            <p className="text-sm text-destructive">{errors.objectType.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.objectType.message}
+            </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="loanAmount">Cantidad del préstamo</Label>
+          <Label htmlFor="loanAmount">Cantidad del préstamo ($)</Label>
           <Input
             id="loanAmount"
             type="number"
+            step="0.01"
             placeholder="5000"
             {...register("loanAmount")}
           />
           {errors.loanAmount && (
-            <p className="text-sm text-destructive">{errors.loanAmount.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.loanAmount.message}
+            </p>
           )}
         </div>
 
@@ -215,7 +282,9 @@ const LoanRequestForm = () => {
             {...register("location")}
           />
           {errors.location && (
-            <p className="text-sm text-destructive">{errors.location.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.location.message}
+            </p>
           )}
         </div>
       </div>
@@ -244,6 +313,9 @@ const LoanRequestForm = () => {
                 ? "Máximo de imágenes alcanzado"
                 : "Haz clic o arrastra para subir imágenes"}
             </span>
+            <span className="text-xs text-muted-foreground">
+              {images.length}/5 imágenes
+            </span>
           </label>
         </div>
 
@@ -269,7 +341,12 @@ const LoanRequestForm = () => {
         )}
       </div>
 
-      <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={isSubmitting}
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

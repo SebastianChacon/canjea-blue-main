@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Clock, Banknote } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-image.jpg";
 import ScrollAnimator from "./ui/ScrollAnimator";
 import { useRef } from "react";
 import useParallax from "@/hooks/useParallax";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   const parallaxRef = useRef<HTMLDivElement>(null);
   useParallax(parallaxRef);
 
@@ -63,7 +65,7 @@ const HeroSection = () => {
             <ScrollAnimator animationClassName="animate-fade-in-up [animation-delay:400ms]">
               <div className="flex items-center gap-3 justify-center md:justify-start">
                 <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-primary" />
+                  <Clock onClick={() => navigate('/solicitudes')} className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-foreground">
