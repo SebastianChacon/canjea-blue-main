@@ -19,6 +19,7 @@ interface LoanRequest {
   email: string;
   object_type: string;
   loan_amount: number;
+  phone_number: string;
   location: string;
   status: string;
   created_at: { seconds: number; nanoseconds: number };
@@ -45,7 +46,9 @@ const AdminRequests = () => {
         setError(null);
       } catch (err) {
         console.error("Error fetching loan requests:", err);
-        setError("No se pudieron cargar las solicitudes. Verifica los permisos de lectura en las reglas de seguridad de Firestore.");
+        setError(
+          "No se pudieron cargar las solicitudes. Verifica los permisos de lectura en las reglas de seguridad de Firestore."
+        );
       } finally {
         setIsLoading(false);
       }
@@ -56,22 +59,39 @@ const AdminRequests = () => {
 
   const formatDate = (timestamp: { seconds: number; nanoseconds: number }) => {
     if (!timestamp) return "Fecha no disponible";
-    const date = new Date(timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000);
+    const date = new Date(
+      timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000
+    );
     return format(date, "dd/MM/yyyy, HH:mm");
   };
 
-  const renderSkeletons = () => (
-    Array(5).fill(0).map((_, index) => (
-      <TableRow key={index}>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-      </TableRow>
-    ))
-  );
+  const renderSkeletons = () =>
+    Array(5)
+      .fill(0)
+      .map((_, index) => (
+        <TableRow key={index}>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-full" />
+          </TableCell>
+        </TableRow>
+      ));
+
+    console.log("Rendered AdminRequests with", requests.length, requests);
 
   return (
     <div className="container mx-auto py-10">
@@ -84,9 +104,11 @@ const AdminRequests = () => {
               <TableHead>Fecha</TableHead>
               <TableHead>Nombre Completo</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Numero de teléfono</TableHead>
               <TableHead>Objeto</TableHead>
               <TableHead>Monto</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>Ubicación</TableHead>
+              <TableHead>Imágenes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,12 +120,23 @@ const AdminRequests = () => {
                   <TableCell>{formatDate(req.created_at)}</TableCell>
                   <TableCell>{req.full_name}</TableCell>
                   <TableCell>{req.email}</TableCell>
+                  <TableCell>{req.phone_number}</TableCell>
                   <TableCell>{req.object_type}</TableCell>
                   <TableCell>${req.loan_amount.toLocaleString()}</TableCell>
+                  <TableCell>{req.location}</TableCell>
                   <TableCell>
-                    <Badge variant={req.status === 'pending' ? 'default' : 'secondary'}>
-                      {req.status}
-                    </Badge>
+                    {req.images.map((url, index) => (
+                      <div key={index}>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline"
+                        >
+                          Link {index + 1}
+                        </a>
+                      </div>
+                    ))}
                   </TableCell>
                 </TableRow>
               ))

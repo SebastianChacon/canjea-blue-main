@@ -39,9 +39,6 @@ const Header = () => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
-          <Link to="/solicitudes" className="text-muted-foreground hover:text-primary transition-colors">
-            Solicitudes
-          </Link>
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -90,9 +87,6 @@ const Header = () => {
         }`}
       >
         <nav className="flex flex-col items-center gap-6 py-8">
-          <Link to="/solicitudes" className="text-lg font-medium text-muted-foreground hover:text-primary" onClick={() => setIsMenuOpen(false)}>
-            Solicitudes
-          </Link>
           {navLinks.map((link) => (
             <a
               key={link.href}

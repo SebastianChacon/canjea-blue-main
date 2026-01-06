@@ -17,6 +17,7 @@ import { db, storage } from "@/integrations/firebase/client";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, Loader2 } from "lucide-react";
+import { Controller } from "react-hook-form";
 
 const formSchema = z.object({
   fullName: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -42,6 +43,9 @@ const objectTypes = [
   "Otro",
 ];
 
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // 5MB
+
 const LoanRequestForm = () => {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -51,8 +55,7 @@ const LoanRequestForm = () => {
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
+    control,
     formState: { errors },
     reset,
   } = useForm<FormData>({
@@ -67,17 +70,29 @@ const LoanRequestForm = () => {
     },
   });
 
-  const objectType = watch("objectType");
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles = Array.from(files).slice(0, 5 - images.length);
-    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    const newValidFiles: File[] = [];
+    const newValidPreviews: string[] = [];
+    const filesToProcess = Array.from(files).slice(0, 5 - images.length);
 
-    setImages((prev) => [...prev, ...newFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    for (const file of filesToProcess) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({
+          title: "Error de archivo",
+          description: `La imagen "${file.name}" excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB.`,
+          variant: "destructive",
+        });
+        continue; // Skip this file if too large
+      }
+      newValidFiles.push(file);
+      newValidPreviews.push(URL.createObjectURL(file));
+    }
+
+    setImages((prev) => [...prev, ...newValidFiles]);
+    setImagePreviews((prev) => [...prev, ...newValidPreviews]);
   };
 
   const removeImage = (index: number) => {
@@ -105,9 +120,7 @@ const LoanRequestForm = () => {
   };
 
   const onSubmit = async (data: FormData) => {
-    console.log("=== INICIO DEL PROCESO ===");
-    console.log("1. Datos del formulario:", data);
-
+    // Validación adicional
     if (!data.objectType) {
       toast({
         title: "Error",
@@ -120,12 +133,10 @@ const LoanRequestForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Paso 1: Subir imágenes
-      console.log("2. Iniciando subida de imágenes...");
+      // Subir imágenes
       const imageUrls = await uploadImages();
-      console.log("3. Imágenes subidas:", imageUrls);
 
-      // Paso 2: Preparar datos para Firebase
+      // Preparar datos para Firebase
       const loanData = {
         full_name: data.fullName,
         phone_number: data.phoneNumber,
@@ -138,13 +149,8 @@ const LoanRequestForm = () => {
         created_at: serverTimestamp(),
       };
 
-      console.log("4. Datos preparados para Firestore:", loanData);
-      console.log("5. Intentando guardar en colección 'loan_requests'...");
-
-      // Paso 3: Guardar en Firestore
+      // Guardar en Firestore
       const docRef = await addDoc(collection(db, "loan_requests"), loanData);
-
-      console.log("6. ✅ ÉXITO - Documento creado con ID:", docRef.id);
 
       toast({
         title: "¡Solicitud enviada!",
@@ -157,15 +163,10 @@ const LoanRequestForm = () => {
       setImagePreviews([]);
       
     } catch (error) {
-      console.error("❌ ERROR COMPLETO:", error);
-      console.error("Código de error:", error.code);
-      console.error("Mensaje:", error.message);
-      alert(`ERROR: ${error.code} - ${error.message}`);
-      console.error("Stack:", error.stack);
+      console.error("Error al enviar solicitud:", error);
 
       let errorMessage = "Hubo un problema al enviar tu solicitud.";
-      
-      // Mensajes de error específicos
+
       if (error.code === "permission-denied") {
         errorMessage = "Permisos denegados. Verifica las reglas de seguridad de Firebase.";
       } else if (error.code === "unavailable") {
@@ -181,7 +182,6 @@ const LoanRequestForm = () => {
       });
     } finally {
       setIsSubmitting(false);
-      console.log("=== FIN DEL PROCESO ===");
     }
   };
 
@@ -231,23 +231,26 @@ const LoanRequestForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="objectType">Tipo de objeto</Label>
-          <Select
-            value={objectType}
-            onValueChange={(value) =>
-              setValue("objectType", value, { shouldValidate: true })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona una opción" />
-            </SelectTrigger>
-            <SelectContent>
-              {objectTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="objectType"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una opción" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {objectTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+
           {errors.objectType && (
             <p className="text-sm text-destructive">
               {errors.objectType.message}
