@@ -18,6 +18,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { sendEmailNotification } from "@/lib/email";
 
 const formSchema = z.object({
   fullName: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -149,8 +150,24 @@ const LoanRequestForm = () => {
         created_at: serverTimestamp(),
       };
 
-      // Guardar en Firestore
+// Guardar en Firestore
       const docRef = await addDoc(collection(db, "loan_requests"), loanData);
+
+      // Enviar email de notificación
+      try {
+        await sendEmailNotification({
+          fullName: data.fullName,
+          phoneNumber: data.phoneNumber,
+          email: data.email,
+          objectType: data.objectType,
+          loanAmount: data.loanAmount,
+          location: data.location,
+          images: imageUrls,
+        });
+      } catch (emailError) {
+        console.error("Error al enviar email:", emailError);
+        // No fallamos el proceso si el email no se envía, solo lo registramos
+      }
 
       toast({
         title: "¡Solicitud enviada!",
