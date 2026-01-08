@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /loan-images/{fileName} {
+      allow write;
+      allow read;
+    }
+    match /loan_images/{documentId}/{allPaths=**} {
+      allow write;
+      allow read;
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/integrations/firebase/client";
 import {
   Table,
@@ -10,7 +10,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { Trash2 } from "lucide-react";
 
 interface LoanRequest {
   id: string;
@@ -29,6 +33,8 @@ const AdminRequests = () => {
   const [requests, setRequests] = useState<LoanRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState<LoanRequest | null>(null);
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -56,12 +62,44 @@ const AdminRequests = () => {
     fetchRequests();
   }, []);
 
-  const formatDate = (timestamp: { seconds: number; nanoseconds: number }) => {
+const formatDate = (timestamp: { seconds: number; nanoseconds: number }) => {
     if (!timestamp) return "Fecha no disponible";
     const date = new Date(
       timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000
     );
     return format(date, "dd/MM/yyyy, HH:mm");
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!requestToDelete) return;
+    
+    try {
+      await deleteDoc(doc(db, "loan_requests", requestToDelete.id));
+      setRequests(requests.filter(req => req.id !== requestToDelete.id));
+      setDeleteDialogOpen(false);
+      setRequestToDelete(null);
+    } catch (err) {
+      console.error("Error deleting request:", err);
+      setError("No se pudo eliminar la solicitud.");
+    }
+  };
+
+  const handleStatusChange = async (requestId: string, newStatus: string) => {
+    try {
+      const requestRef = doc(db, "loan_requests", requestId);
+      await updateDoc(requestRef, { status: newStatus });
+      setRequests(requests.map(req => 
+        req.id === requestId ? { ...req, status: newStatus } : req
+      ));
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setError("No se pudo actualizar el estado.");
+    }
+  };
+
+  const openDeleteDialog = (request: LoanRequest) => {
+    setRequestToDelete(request);
+    setDeleteDialogOpen(true);
   };
 
   const renderSkeletons = () =>
@@ -98,7 +136,7 @@ const AdminRequests = () => {
       {error && <p className="text-destructive mb-4">{error}</p>}
       <div className="border rounded-lg">
         <Table>
-          <TableHeader>
+<TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
               <TableHead>Nombre Completo</TableHead>
@@ -107,7 +145,9 @@ const AdminRequests = () => {
               <TableHead>Objeto</TableHead>
               <TableHead>Monto</TableHead>
               <TableHead>Ubicación</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead>Imágenes</TableHead>
+              <TableHead>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -121,10 +161,25 @@ const AdminRequests = () => {
                   <TableCell>{req.email}</TableCell>
                   <TableCell>{req.phone_number}</TableCell>
                   <TableCell>{req.object_type}</TableCell>
-                  <TableCell>${req.loan_amount.toLocaleString()}</TableCell>
+<TableCell>${req.loan_amount.toLocaleString()}</TableCell>
                   <TableCell>{req.location}</TableCell>
                   <TableCell>
-                    {req.images.map((url, index) => (
+                    <Select
+                      value={req.status}
+                      onValueChange={(value) => handleStatusChange(req.id, value)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="aceptado">Aceptado</SelectItem>
+                        <SelectItem value="rechazado">Rechazado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {req.images?.map((url, index) => (
                       <div key={index}>
                         <a
                           href={url}
@@ -137,18 +192,46 @@ const AdminRequests = () => {
                       </div>
                     ))}
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openDeleteDialog(req)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center">
+<TableRow>
+                <TableCell colSpan={10} className="text-center">
                   No hay solicitudes para mostrar.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-        </Table>
+</Table>
       </div>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro?</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro que quieres eliminar esta fila {requestToDelete?.full_name}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteRequest}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Solo usuarios autenticados pueden leer las solicitudes de préstamo
+    match /loan_requests/{documentId} {
+      // Cualquier persona puede crear una solicitud (para el formulario público)
+      allow create: if true;
+      
+      // Solo usuarios autenticados pueden leer, actualizar y eliminar
+      allow read, update, delete: if request.auth != null;
+      
+      // Validación de datos al crear
+      allow create: if 
+        request.resource.data.full_name is string &&
+        request.resource.data.email is string &&
+        request.resource.data.phone_number is string &&
+        request.resource.data.object_type is string &&
+        request.resource.data.loan_amount is number &&
+        request.resource.data.loan_amount > 0 &&
+        request.resource.data.location is string &&
+        request.resource.data.status in ['solicitado', 'aceptado', 'rechazado'];
+      
+      // Validación de datos al actualizar
+      allow update: if 
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasAll(['status']) && // Solo puede cambiar el status
+        request.resource.data.status in ['solicitado', 'aceptado', 'rechazado'];
+    }
+  }
+}

@@ -19,6 +19,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { sendEmailNotification } from "@/lib/email";
+import { checkStorageBeforeUpload } from "@/lib/storage-usage";
 
 const formSchema = z.object({
   fullName: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -27,6 +28,7 @@ const formSchema = z.object({
   objectType: z.string().min(1, "Selecciona un tipo de objeto"),
   loanAmount: z.string().min(1, "Ingresa la cantidad del préstamo"),
   location: z.string().min(3, "Ingresa tu ubicación"),
+  images: z.array(z.custom<File>()).min(1, "Debes subir al menos una imagen"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -44,8 +46,8 @@ const objectTypes = [
   "Otro",
 ];
 
-const MAX_FILE_SIZE_MB = 5;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE_KB = 300;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_KB * 1024; // 300KB
 
 const LoanRequestForm = () => {
   const [images, setImages] = useState<File[]>([]);
@@ -53,12 +55,14 @@ const LoanRequestForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const {
+const {
     register,
     handleSubmit,
     control,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -68,53 +72,87 @@ const LoanRequestForm = () => {
       objectType: "",
       loanAmount: "",
       location: "",
+      images: [],
     },
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const watchedImages = watch("images");
+
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
+    const filesArray = Array.from(files).slice(0, 5 - images.length);
+    
     const newValidFiles: File[] = [];
     const newValidPreviews: string[] = [];
-    const filesToProcess = Array.from(files).slice(0, 5 - images.length);
 
-    for (const file of filesToProcess) {
+    // Procesar archivos sincrónicamente para máxima velocidad
+    for (const file of filesArray) {
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "Error de archivo",
-          description: `La imagen "${file.name}" excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB.`,
+          description: `La imagen "${file.name}" excede el tamaño máximo de ${MAX_FILE_SIZE_KB}KB.`,
           variant: "destructive",
         });
-        continue; // Skip this file if too large
+        continue;
       }
       newValidFiles.push(file);
-      newValidPreviews.push(URL.createObjectURL(file));
+      // Crear preview instantáneo
+      const preview = URL.createObjectURL(file);
+      newValidPreviews.push(preview);
     }
 
+    // Actualizar estado inmediatamente
     setImages((prev) => [...prev, ...newValidFiles]);
     setImagePreviews((prev) => [...prev, ...newValidPreviews]);
+    
+    // Actualizar formulario con las imágenes
+    setValue("images", [...images, ...newValidFiles]);
+    
+    // Verificar storage en background (no bloquea UI)
+    checkStorageBeforeUpload(filesArray).then(storageCheck => {
+      if (!storageCheck.canUpload) {
+        // Remover las imágenes si no hay espacio
+        setImages((prev) => prev.slice(0, -newValidFiles.length));
+        setImagePreviews((prev) => prev.slice(0, -newValidPreviews.length));
+      }
+    });
   };
 
-  const removeImage = (index: number) => {
+const removeImage = (index: number) => {
     URL.revokeObjectURL(imagePreviews[index]);
-    setImages((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    const newImages = images.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImages(newImages);
+    setImagePreviews(newPreviews);
+    setValue("images", newImages);
   };
 
-  const uploadImages = async (): Promise<string[]> => {
+const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return [];
+
+    // Verificar límite de almacenamiento antes de subir
+    const storageCheck = await checkStorageBeforeUpload(images);
+    if (!storageCheck.canUpload) {
+      return []; // Retornar vacío si no hay espacio
+    }
 
     const uploadedUrls: string[] = [];
 
     for (const file of images) {
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(7)}-${file.name}`;
-      const imageRef = ref(storage, `loan-images/${fileName}`);
-      await uploadBytes(imageRef, file);
-      const downloadURL = await getDownloadURL(imageRef);
-      uploadedUrls.push(downloadURL);
+      try {
+        const fileName = `${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(7)}-${file.name}`;
+        const imageRef = ref(storage, `loan-images/${fileName}`);
+        await uploadBytes(imageRef, file);
+        const downloadURL = await getDownloadURL(imageRef);
+        uploadedUrls.push(downloadURL);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        // Continuar con las demás imágenes si una falla
+      }
     }
 
     return uploadedUrls;
@@ -306,8 +344,8 @@ const LoanRequestForm = () => {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Imágenes del artículo (máximo 5)</Label>
+<div className="space-y-2">
+        <Label>Imágenes del artículo (máximo 5, mínimo 1 obligatoria)*</Label>
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
           <input
             type="file"
@@ -318,7 +356,7 @@ const LoanRequestForm = () => {
             id="image-upload"
             disabled={images.length >= 5}
           />
-          <label
+<label
             htmlFor="image-upload"
             className={`cursor-pointer flex flex-col items-center gap-2 ${
               images.length >= 5 ? "opacity-50 cursor-not-allowed" : ""
@@ -331,12 +369,12 @@ const LoanRequestForm = () => {
                 : "Haz clic o arrastra para subir imágenes"}
             </span>
             <span className="text-xs text-muted-foreground">
-              {images.length}/5 imágenes
+              {images.length}/5 imágenes (máximo {MAX_FILE_SIZE_KB}KB cada una) - Mínimo 1 requerida
             </span>
           </label>
         </div>
 
-        {imagePreviews.length > 0 && (
+{imagePreviews.length > 0 && (
           <div className="grid grid-cols-3 md:grid-cols-5 gap-4 mt-4">
             {imagePreviews.map((preview, index) => (
               <div key={index} className="relative group">
@@ -355,6 +393,12 @@ const LoanRequestForm = () => {
               </div>
             ))}
           </div>
+        )}
+        
+        {errors.images && (
+          <p className="text-sm text-destructive mt-2">
+            {errors.images.message}
+          </p>
         )}
       </div>
 

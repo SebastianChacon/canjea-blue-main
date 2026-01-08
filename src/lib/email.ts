@@ -1,9 +1,9 @@
 import emailjs from '@emailjs/browser';
 
-// Configuración de EmailJS
-const EMAILJS_PUBLIC_KEY = 'NlyZ1R1vp97e_oySX';
-const EMAILJS_SERVICE_ID = 'service_bvtr4a7';
-const EMAILJS_TEMPLATE_ID = 'template_vvl3mac';
+// Configuración de EmailJS desde variables de entorno
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 
 interface EmailData {
   fullName: string;
@@ -17,6 +17,12 @@ interface EmailData {
 
 export const sendEmailNotification = async (data: EmailData): Promise<void> => {
   try {
+    // Verificar que las variables de entorno estén configuradas
+    if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID) {
+      console.error('Variables de entorno de EmailJS no configuradas');
+      return; // Silenciosamente continuar sin enviar email
+    }
+
     const templateParams = {
       to_email: 'canjeaecuador@outlook.com',
       from_name: data.fullName,
@@ -39,7 +45,8 @@ export const sendEmailNotification = async (data: EmailData): Promise<void> => {
     console.log('Email enviado exitosamente');
   } catch (error) {
     console.error('Error al enviar email:', error);
-    throw new Error('No se pudo enviar la notificación por email');
+    // No lanzar error para no detener el proceso
+    // El usuario no notificará el fallo del email
   }
 };
 
