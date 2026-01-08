@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import LoanRequest from "./pages/LoanRequest";
 import AdminRequests from "./pages/AdminRequests";
 import NotFound from "./pages/NotFound";
+import SignIn from "./pages/SignIn";
+import PrivateRoute from "./components/PrivateRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,7 +21,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/solicitar" element={<LoanRequest />} />
-          <Route path="/solicitudes" element={<AdminRequests />} />
+          <Route
+            path="/solicitudes"
+            element={
+              <PrivateRoute>
+                <AdminRequests />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/sign-in" element={<SignIn />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
